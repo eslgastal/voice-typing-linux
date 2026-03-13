@@ -48,13 +48,14 @@ podman run --rm -it \
   --group-add keep-groups \
   -e DBUS_SESSION_BUS_ADDRESS \
   -e DISPLAY \
+  -e HOME=/tmp/voice-typing \
   -e WAYLAND_DISPLAY \
   -e XDG_RUNTIME_DIR \
   -e PULSE_SERVER \
   -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
   -v "$XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR" \
-  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
-  -v "$HOME/.cache/sherpa-onnx:/root/.cache/sherpa-onnx" \
+  -v "$HOME/.cache/huggingface:/tmp/voice-typing/.cache/huggingface" \
+  -v "$HOME/.cache/sherpa-onnx:/tmp/voice-typing/.cache/sherpa-onnx" \
   voice-typing --streaming --device cpu
 ```
 
@@ -69,21 +70,26 @@ podman run --rm -it \
   --group-add keep-groups \
   -e DBUS_SESSION_BUS_ADDRESS \
   -e DISPLAY \
+  -e HOME=/tmp/voice-typing \
   -e WAYLAND_DISPLAY \
   -e XDG_RUNTIME_DIR \
   -e PULSE_SERVER \
   -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
   -v "$XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR" \
-  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
-  -v "$HOME/.cache/sherpa-onnx:/root/.cache/sherpa-onnx" \
+  -v "$HOME/.cache/huggingface:/tmp/voice-typing/.cache/huggingface" \
+  -v "$HOME/.cache/sherpa-onnx:/tmp/voice-typing/.cache/sherpa-onnx" \
   voice-typing --streaming --device cuda
 ```
 
 Notes:
 
-- The image installs the runtime dependencies from `requirements.txt` plus the system packages needed for PyAudio, IBus, xdotool/ydotool, and CUDA/cuDNN-backed PyTorch.
+- The image installs the Python runtime dependencies from `requirements.txt`.
+- `PyGObject` and `pycairo` are supplied by the image's system packages rather than pip so they match the installed GTK/GI stack.
+- It also installs the system packages needed for PyAudio, IBus, xdotool, ydotool, and the GTK/GI runtime pieces used by the project, including the optional GTK4 visualizer overlay.
+- NVIDIA support comes from the CUDA/cuDNN base image plus a CUDA-enabled PyTorch wheel installed during the image build.
 - `--device /dev/snd` is required for microphone access; `--device /dev/uinput` enables the direct input fallback on Wayland/X11.
 - Mounting `"$XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR"` lets the container reach your Wayland, PulseAudio/PipeWire, and IBus session sockets; `DBUS_SESSION_BUS_ADDRESS` should be passed through with it.
+- The sample commands set `HOME=/tmp/voice-typing` so the mounted Hugging Face and sherpa-onnx caches work whether the container runs as root or a mapped user.
 - The default entrypoint runs `enhanced-voice-typing.py`, so any extra arguments after the image name are passed to the voice tool directly.
 
 ## Architecture

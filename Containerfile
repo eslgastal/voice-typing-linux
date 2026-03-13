@@ -1,4 +1,7 @@
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+ARG CUDA_VERSION=12.4.1
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-runtime-ubuntu22.04
+
+ARG CUDA_VERSION
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
@@ -48,8 +51,14 @@ WORKDIR /app
 
 COPY requirements.txt /tmp/requirements.txt
 
+# PyTorch CUDA wheel indexes use the major/minor format (for example, CUDA 12.4.x -> cu124).
+# PyGObject and pycairo come from apt because they depend on the system GI/GTK stack.
+RUN CUDA_PYTORCH="cu$(printf '%s' "$CUDA_VERSION" | cut -d. -f1,2 | tr -d '.')" \
+ && [ -n "$CUDA_PYTORCH" ] || { echo "Error: failed to parse CUDA_VERSION=$CUDA_VERSION" >&2; exit 1; } \
+ && printf '%s' "$CUDA_PYTORCH" > /tmp/pytorch-cuda-index
+
 RUN grep -vE '^(torch|PyGObject|pycairo)\b' /tmp/requirements.txt > /tmp/requirements-container.txt \
- && python3 -m pip install --index-url https://download.pytorch.org/whl/cu124 torch \
+ && python3 -m pip install --index-url "https://download.pytorch.org/whl/$(cat /tmp/pytorch-cuda-index)" torch \
  && python3 -m pip install -r /tmp/requirements-container.txt
 
 COPY . /app

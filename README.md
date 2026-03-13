@@ -30,6 +30,62 @@ pip install -r requirements.txt
 python enhanced-voice-typing.py --streaming --device cuda
 ```
 
+## Podman Container
+
+Build the image with Podman:
+
+```bash
+podman build -t voice-typing -f Containerfile .
+```
+
+Run it with the devices and sockets the app needs:
+
+```bash
+podman run --rm -it \
+  --device /dev/snd \
+  --device /dev/uinput \
+  --security-opt label=disable \
+  --group-add keep-groups \
+  -e DBUS_SESSION_BUS_ADDRESS \
+  -e DISPLAY \
+  -e WAYLAND_DISPLAY \
+  -e XDG_RUNTIME_DIR \
+  -e PULSE_SERVER \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+  -v "$XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR" \
+  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
+  -v "$HOME/.cache/sherpa-onnx:/root/.cache/sherpa-onnx" \
+  voice-typing --streaming --device cpu
+```
+
+For NVIDIA GPUs, install the NVIDIA container runtime/toolkit for Podman on the host and add GPU access:
+
+```bash
+podman run --rm -it \
+  --device nvidia.com/gpu=all \
+  --device /dev/snd \
+  --device /dev/uinput \
+  --security-opt label=disable \
+  --group-add keep-groups \
+  -e DBUS_SESSION_BUS_ADDRESS \
+  -e DISPLAY \
+  -e WAYLAND_DISPLAY \
+  -e XDG_RUNTIME_DIR \
+  -e PULSE_SERVER \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+  -v "$XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR" \
+  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
+  -v "$HOME/.cache/sherpa-onnx:/root/.cache/sherpa-onnx" \
+  voice-typing --streaming --device cuda
+```
+
+Notes:
+
+- The image installs the runtime dependencies from `requirements.txt` plus the system packages needed for PyAudio, IBus, xdotool/ydotool, and CUDA/cuDNN-backed PyTorch.
+- `--device /dev/snd` is required for microphone access; `--device /dev/uinput` enables the direct input fallback on Wayland/X11.
+- Mounting `"$XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR"` lets the container reach your Wayland, PulseAudio/PipeWire, and IBus session sockets; `DBUS_SESSION_BUS_ADDRESS` should be passed through with it.
+- The default entrypoint runs `enhanced-voice-typing.py`, so any extra arguments after the image name are passed to the voice tool directly.
+
 ## Architecture
 
 Two processes communicate via Unix socket:
